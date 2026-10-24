@@ -1,0 +1,12 @@
+{
+  "name": "mini-social-media-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini Social Media Platform - Full Stack MERN Application",
+  "scripts": {
+    "start": "npm run start --prefix backend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend"
+  }
+}
