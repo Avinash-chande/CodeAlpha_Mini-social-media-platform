@@ -1,32 +1,32 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-
-function Home() {
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600/10 text-blue-500 font-bold text-xl mb-2">
-          M
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">Mini Social Media Platform</h1>
-        <p className="text-sm text-slate-400">
-          Phase 1 Setup: React + Vite + Tailwind CSS v4 + React Router
-        </p>
-        <div className="pt-2">
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            Frontend Ready
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Navbar from './components/Navbar'
+import Home from './pages/Home'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Profile from './pages/Profile'
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-      <div className="text-center space-y-3">
-        <h1 className="text-4xl font-extrabold text-red-500">404</h1>
-        <p className="text-slate-400">Page not found</p>
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+      <div className="text-center space-y-4 max-w-md">
+        <h1 className="text-6xl font-extrabold text-blue-500 tracking-tight">
+          404
+        </h1>
+        <h2 className="text-xl font-bold text-white">Page not found</h2>
+        <p className="text-sm text-slate-400">
+          The page you are looking for might have been removed, had its name
+          changed, or is temporarily unavailable.
+        </p>
+        <div className="pt-2">
+          <Link
+            to="/"
+            className="inline-flex items-center px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/25"
+          >
+            Back to Home
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -35,10 +35,35 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AuthProvider>
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500/30 selection:text-blue-200">
+          <Navbar />
+          <main className="flex-1">
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+
+              {/* Public profile view by user ID or username */}
+              <Route path="/profile/:id" element={<Profile />} />
+
+              {/* Protected Route for authenticated user's own profile */}
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* 404 Catch-All */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+        </div>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
