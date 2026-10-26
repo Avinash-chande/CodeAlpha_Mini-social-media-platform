@@ -3,6 +3,7 @@ import cors from 'cors'
 import healthRoutes from './routes/healthRoutes.js'
 import authRoutes from './routes/authRoutes.js'
 import userRoutes from './routes/userRoutes.js'
+import postRoutes from './routes/postRoutes.js'
 
 const app = express()
 
@@ -14,6 +15,7 @@ app.use(express.json())
 app.use('/api', healthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/posts', postRoutes)
 
 // Fallback for undefined routes
 app.use((req, res) => {
