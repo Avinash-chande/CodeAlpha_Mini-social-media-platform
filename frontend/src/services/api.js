@@ -93,7 +93,48 @@ export const userAPI = {
     }),
 }
 
+export const postAPI = {
+  // Get posts with pagination and optional author filtering
+  getPosts: ({ page = 1, limit = 10, author } = {}) => {
+    const params = new URLSearchParams()
+    if (page) params.append('page', page)
+    if (limit) params.append('limit', limit)
+    if (author) params.append('author', author)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    return request(`/posts${queryString}`, {
+      method: 'GET',
+    })
+  },
+
+  // Get single post by ID
+  getPostById: (id) =>
+    request(`/posts/${id}`, {
+      method: 'GET',
+    }),
+
+  // Create new post (content, optional image)
+  createPost: (postData) =>
+    request('/posts', {
+      method: 'POST',
+      body: postData,
+    }),
+
+  // Update existing post
+  updatePost: (id, postData) =>
+    request(`/posts/${id}`, {
+      method: 'PUT',
+      body: postData,
+    }),
+
+  // Delete post
+  deletePost: (id) =>
+    request(`/posts/${id}`, {
+      method: 'DELETE',
+    }),
+}
+
 export default {
   auth: authAPI,
   users: userAPI,
+  posts: postAPI,
 }

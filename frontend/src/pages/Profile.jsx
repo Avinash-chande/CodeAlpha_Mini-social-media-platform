@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { userAPI, authAPI } from '../services/api'
+import { userAPI, authAPI, postAPI } from '../services/api'
+import PostCard from '../components/PostCard'
 import {
   User as UserIcon,
   Calendar,
@@ -47,6 +48,10 @@ export default function Profile() {
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState('')
 
+  // User Posts State
+  const [userPosts, setUserPosts] = useState([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false)
+
   // Determine if viewing own profile
   const isOwnProfile =
     !id ||
@@ -55,18 +60,20 @@ export default function Profile() {
       (authUser._id === id ||
         authUser.username?.toLowerCase() === id?.toLowerCase()))
 
-  // Fetch profile data
+  // Fetch profile data & posts
   useEffect(() => {
     let isMounted = true
 
-    const fetchProfile = async () => {
+    const fetchProfileAndPosts = async () => {
       setIsLoading(true)
       setError('')
 
       try {
+        let loadedUser = null
         if (isOwnProfile) {
           // Fetch fresh data for authenticated user
           const data = await authAPI.getMe()
+          loadedUser = data.user
           if (isMounted) {
             setProfileUser(data.user)
             setEditFormData({
@@ -78,8 +85,29 @@ export default function Profile() {
         } else {
           // Fetch public profile by ID or username
           const data = await userAPI.getProfile(id)
+          loadedUser = data.user
           if (isMounted) {
             setProfileUser(data.user)
+          }
+        }
+
+        // Fetch posts authored by this user
+        if (loadedUser?._id) {
+          setIsLoadingPosts(true)
+          try {
+            const postsData = await postAPI.getPosts({
+              author: loadedUser._id,
+              limit: 30,
+            })
+            if (isMounted) {
+              setUserPosts(postsData.posts || [])
+            }
+          } catch (postErr) {
+            console.warn('Could not fetch user posts:', postErr)
+          } finally {
+            if (isMounted) {
+              setIsLoadingPosts(false)
+            }
           }
         }
       } catch (err) {
@@ -93,7 +121,7 @@ export default function Profile() {
       }
     }
 
-    fetchProfile()
+    fetchProfileAndPosts()
 
     return () => {
       isMounted = false
@@ -168,6 +196,22 @@ export default function Profile() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // Handle post update inside Profile
+  const handlePostUpdated = (updatedPost) => {
+    setUserPosts((prev) =>
+      prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
+    )
+  }
+
+  // Handle post deletion inside Profile
+  const handlePostDeleted = (deletedId) => {
+    setUserPosts((prev) => prev.filter((p) => p._id !== deletedId))
+    setProfileUser((prev) => ({
+      ...prev,
+      postCount: Math.max(0, (prev.postCount || 1) - 1),
+    }))
   }
 
   // Format joined date
@@ -371,17 +415,47 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Posts Tab / Placeholder Section */}
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-2">
-            <FileText className="w-6 h-6" />
+        {/* User Posts Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-400" />
+              <span>Posts</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold">
+                {userPosts.length}
+              </span>
+            </h2>
           </div>
-          <h3 className="text-lg font-bold text-white">Posts</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            {profileUser.postCount === 0
-              ? `${profileUser.username} hasn't posted anything yet. Posts and feed features will arrive in Phase 3!`
-              : `${profileUser.username} has ${profileUser.postCount} posts.`}
-          </p>
+
+          {isLoadingPosts ? (
+            <div className="p-8 text-center text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-400 mb-2" />
+              <p className="text-xs">Loading posts...</p>
+            </div>
+          ) : userPosts.length === 0 ? (
+            <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-8 text-center space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-bold text-white">No posts yet</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                {isOwnProfile
+                  ? "You haven't published any posts yet. Go to the feed to share your first post!"
+                  : `@${profileUser.username} hasn't posted anything yet.`}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {userPosts.map((post) => (
+                <PostCard
+                  key={post._id}
+                  post={post}
+                  onPostUpdated={handlePostUpdated}
+                  onPostDeleted={handlePostDeleted}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

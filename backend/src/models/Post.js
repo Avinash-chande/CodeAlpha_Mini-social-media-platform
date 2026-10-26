@@ -13,6 +13,11 @@ const postSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, 'Post content cannot exceed 1000 characters'],
     },
+    image: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,6 +29,9 @@ const postSchema = new mongoose.Schema(
     timestamps: true,
   }
 )
+
+postSchema.index({ createdAt: -1 })
+postSchema.index({ author: 1, createdAt: -1 })
 
 const Post = mongoose.model('Post', postSchema)
 
