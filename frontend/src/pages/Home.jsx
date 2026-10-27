@@ -319,8 +319,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-blue-950/20 border border-blue-500/30 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-semibold text-white">
                     Phase 4: Likes & Comments
@@ -330,8 +330,21 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              <div className="p-3 rounded-2xl bg-blue-950/20 border border-blue-500/30 flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-semibold text-white">
+                    Phase 5: Follow System
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Follow/unfollow, followers & following counters and lists
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
 
         </div>
       </div>

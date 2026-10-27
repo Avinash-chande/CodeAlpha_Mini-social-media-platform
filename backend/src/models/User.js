@@ -51,8 +51,19 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 )
+
+userSchema.virtual('followersCount').get(function () {
+  return this.followers ? this.followers.length : 0
+})
+
+userSchema.virtual('followingCount').get(function () {
+  return this.following ? this.following.length : 0
+})
+
 
 // Pre-save hook to hash password before saving to database
 userSchema.pre('save', async function () {

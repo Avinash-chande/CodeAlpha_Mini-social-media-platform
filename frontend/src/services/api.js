@@ -91,7 +91,32 @@ export const userAPI = {
       method: 'PUT',
       body: profileData,
     }),
+
+  // Follow or unfollow user (toggle)
+  followUser: (id) =>
+    request(`/users/${id}/follow`, {
+      method: 'PUT',
+    }),
+
+  // Explicitly unfollow user
+  unfollowUser: (id) =>
+    request(`/users/${id}/unfollow`, {
+      method: 'POST',
+    }),
+
+  // Get user followers list
+  getFollowers: (id) =>
+    request(`/users/${id}/followers`, {
+      method: 'GET',
+    }),
+
+  // Get user following list
+  getFollowing: (id) =>
+    request(`/users/${id}/following`, {
+      method: 'GET',
+    }),
 }
+
 
 export const postAPI = {
   // Get posts with pagination and optional author filtering

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { userAPI, authAPI, postAPI } from '../services/api'
 import PostCard from '../components/PostCard'
@@ -9,6 +9,7 @@ import {
   Edit3,
   Users,
   UserCheck,
+  UserPlus,
   FileText,
   Image as ImageIcon,
   Check,
@@ -48,6 +49,19 @@ export default function Profile() {
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState('')
 
+  // Follow / Unfollow State
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [isFollowLoading, setIsFollowLoading] = useState(false)
+  const [followError, setFollowError] = useState('')
+
+  // Followers & Following List Modal State
+  const [followModalType, setFollowModalType] = useState(null) // 'followers' | 'following' | null
+  const [followListUsers, setFollowListUsers] = useState([])
+  const [isLoadingFollowList, setIsLoadingFollowList] = useState(false)
+  const [followListError, setFollowListError] = useState('')
+
   // User Posts State
   const [userPosts, setUserPosts] = useState([])
   const [isLoadingPosts, setIsLoadingPosts] = useState(false)
@@ -67,6 +81,7 @@ export default function Profile() {
     const fetchProfileAndPosts = async () => {
       setIsLoading(true)
       setError('')
+      setFollowError('')
 
       try {
         let loadedUser = null
@@ -81,6 +96,15 @@ export default function Profile() {
               bio: data.user.bio || '',
               profilePicture: data.user.profilePicture || '',
             })
+            setFollowersCount(
+              data.user.followersCount ??
+                (data.user.followers ? data.user.followers.length : 0)
+            )
+            setFollowingCount(
+              data.user.followingCount ??
+                (data.user.following ? data.user.following.length : 0)
+            )
+            setIsFollowing(false)
           }
         } else {
           // Fetch public profile by ID or username
@@ -88,6 +112,28 @@ export default function Profile() {
           loadedUser = data.user
           if (isMounted) {
             setProfileUser(data.user)
+            setFollowersCount(
+              data.user.followersCount ??
+                (data.user.followers ? data.user.followers.length : 0)
+            )
+            setFollowingCount(
+              data.user.followingCount ??
+                (data.user.following ? data.user.following.length : 0)
+            )
+
+            // Determine if authUser is already following loadedUser
+            const currentAuthId = authUser?._id?.toString()
+            const isUserFollowing = Boolean(
+              data.user.isFollowing ||
+                (currentAuthId &&
+                  data.user.followers &&
+                  data.user.followers.some((uid) => {
+                    const fid =
+                      typeof uid === 'string' ? uid : uid?._id || uid
+                    return fid?.toString() === currentAuthId
+                  }))
+            )
+            setIsFollowing(isUserFollowing)
           }
         }
 
@@ -126,7 +172,63 @@ export default function Profile() {
     return () => {
       isMounted = false
     }
-  }, [id, isOwnProfile])
+  }, [id, isOwnProfile, authUser])
+
+  // Handle Follow / Unfollow
+  const handleToggleFollow = async () => {
+    if (!authUser) {
+      setFollowError('Please sign in to follow this user.')
+      setTimeout(() => setFollowError(''), 4000)
+      return
+    }
+
+    if (isFollowLoading || !profileUser?._id) return
+
+    setIsFollowLoading(true)
+    setFollowError('')
+
+    try {
+      const data = await userAPI.followUser(profileUser._id)
+
+      setIsFollowing(data.isFollowing)
+      setFollowersCount(data.followersCount)
+
+      setProfileUser((prev) => ({
+        ...prev,
+        followersCount: data.followersCount,
+        followers: data.followers || [],
+      }))
+    } catch (err) {
+      setFollowError(err.message || 'Failed to update follow status.')
+      setTimeout(() => setFollowError(''), 4000)
+    } finally {
+      setIsFollowLoading(false)
+    }
+  }
+
+  // Open Followers or Following List Modal
+  const handleOpenFollowModal = async (type) => {
+    if (!profileUser?._id) return
+    setFollowModalType(type)
+    setIsLoadingFollowList(true)
+    setFollowListError('')
+    setFollowListUsers([])
+
+    try {
+      const data =
+        type === 'followers'
+          ? await userAPI.getFollowers(profileUser._id)
+          : await userAPI.getFollowing(profileUser._id)
+
+      setFollowListUsers(
+        type === 'followers' ? data.followers || [] : data.following || []
+      )
+    } catch (err) {
+      setFollowListError(err.message || `Failed to load ${type}.`)
+    } finally {
+      setIsLoadingFollowList(false)
+    }
+  }
 
   // Open Edit Modal
   const handleOpenEdit = () => {
@@ -238,7 +340,9 @@ export default function Profile() {
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6 bg-slate-950 text-slate-100">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Profile Not Found</h2>
+          <h2 className="text-xl font-bold text-white mb-2">
+            Profile Not Found
+          </h2>
           <p className="text-sm text-slate-400 mb-6">
             {error || 'The user you are looking for does not exist.'}
           </p>
@@ -278,7 +382,8 @@ export default function Profile() {
                       className="w-full h-full object-cover rounded-xl sm:rounded-2xl"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none'
-                        e.currentTarget.nextElementSibling.style.display = 'flex'
+                        e.currentTarget.nextElementSibling.style.display =
+                          'flex'
                       }}
                     />
                   ) : null}
@@ -306,8 +411,15 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Action Button */}
-              <div className="flex items-center gap-3 relative z-10">
+              {/* Action Button: Edit Profile for Own Profile vs Follow/Unfollow for Others */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 relative z-10">
+                {followError && (
+                  <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{followError}</span>
+                  </div>
+                )}
+
                 {isOwnProfile ? (
                   <button
                     id="edit-profile-btn"
@@ -322,10 +434,30 @@ export default function Profile() {
                   <button
                     id="follow-btn"
                     type="button"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/25 active:scale-95 transition-all cursor-pointer"
+                    onClick={handleToggleFollow}
+                    disabled={isFollowLoading}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg transition-all active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                      isFollowing
+                        ? 'bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30 text-slate-200 border border-slate-700'
+                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
+                    }`}
                   >
-                    <Users className="w-4 h-4" />
-                    <span>Follow</span>
+                    {isFollowLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : isFollowing ? (
+                      <>
+                        <UserCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Following</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Follow</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -378,10 +510,17 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Stats Cards (Followers, Following, Posts) */}
+            {/* Stats Cards (Posts, Followers, Following) */}
             <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-8 pt-6 border-t border-slate-800">
-              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center hover:border-slate-700 transition-colors">
-                <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              {/* Posts Count */}
+              <div
+                id="posts-stat-card"
+                className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center hover:border-slate-700 transition-colors"
+              >
+                <div
+                  id="posts-count"
+                  className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight"
+                >
                   {profileUser.postCount ?? 0}
                 </div>
                 <div className="text-xs font-medium text-slate-400 mt-1 flex items-center justify-center gap-1">
@@ -390,27 +529,45 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center hover:border-slate-700 transition-colors">
-                <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  {profileUser.followersCount ??
-                    (profileUser.followers ? profileUser.followers.length : 0)}
+              {/* Followers Count (Clickable modal launcher) */}
+              <button
+                id="followers-card-btn"
+                type="button"
+                onClick={() => handleOpenFollowModal('followers')}
+                title="View followers"
+                className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center transition-all hover:border-indigo-500/40 hover:bg-slate-900/60 cursor-pointer group"
+              >
+                <div
+                  id="followers-count"
+                  className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight group-hover:text-indigo-400 transition-colors"
+                >
+                  {followersCount}
                 </div>
-                <div className="text-xs font-medium text-slate-400 mt-1 flex items-center justify-center gap-1">
+                <div className="text-xs font-medium text-slate-400 mt-1 flex items-center justify-center gap-1 group-hover:text-slate-200">
                   <Users className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Followers</span>
                 </div>
-              </div>
+              </button>
 
-              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center hover:border-slate-700 transition-colors">
-                <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  {profileUser.followingCount ??
-                    (profileUser.following ? profileUser.following.length : 0)}
+              {/* Following Count (Clickable modal launcher) */}
+              <button
+                id="following-card-btn"
+                type="button"
+                onClick={() => handleOpenFollowModal('following')}
+                title="View following users"
+                className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 text-center transition-all hover:border-violet-500/40 hover:bg-slate-900/60 cursor-pointer group"
+              >
+                <div
+                  id="following-count"
+                  className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight group-hover:text-violet-400 transition-colors"
+                >
+                  {followingCount}
                 </div>
-                <div className="text-xs font-medium text-slate-400 mt-1 flex items-center justify-center gap-1">
+                <div className="text-xs font-medium text-slate-400 mt-1 flex items-center justify-center gap-1 group-hover:text-slate-200">
                   <UserCheck className="w-3.5 h-3.5 text-violet-400" />
                   <span>Following</span>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -458,6 +615,134 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {/* FOLLOWERS / FOLLOWING LIST MODAL */}
+      {followModalType && (
+        <div
+          id="follow-modal-backdrop"
+          onClick={() => setFollowModalType(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            id="follow-modal"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                {followModalType === 'followers' ? (
+                  <Users className="w-5 h-5 text-indigo-400" />
+                ) : (
+                  <UserCheck className="w-5 h-5 text-violet-400" />
+                )}
+                <h3 className="text-lg font-bold text-white capitalize">
+                  {followModalType}
+                  <span className="text-xs ml-2 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold">
+                    {followListUsers.length}
+                  </span>
+                </h3>
+              </div>
+              <button
+                id="close-follow-modal-btn"
+                type="button"
+                onClick={() => setFollowModalType(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 max-h-96 overflow-y-auto space-y-2">
+              {isLoadingFollowList ? (
+                <div className="py-8 text-center text-slate-400 space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-400" />
+                  <p className="text-xs">Loading {followModalType}...</p>
+                </div>
+              ) : followListError ? (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{followListError}</span>
+                </div>
+              ) : followListUsers.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 space-y-2">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-500 flex items-center justify-center mx-auto mb-2">
+                    {followModalType === 'followers' ? (
+                      <Users className="w-5 h-5" />
+                    ) : (
+                      <UserCheck className="w-5 h-5" />
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-300">
+                    {followModalType === 'followers'
+                      ? 'No followers yet'
+                      : 'Not following anyone yet'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {followModalType === 'followers'
+                      ? 'When someone follows this profile, they will appear here.'
+                      : 'When this user follows someone, they will appear here.'}
+                  </p>
+                </div>
+              ) : (
+                followListUsers.map((u) => {
+                  const uId = u._id || u
+                  const uName = u.username || 'User'
+                  const uPic = u.profilePicture || ''
+                  const uBio = u.bio || ''
+                  const isCurrentAuth =
+                    authUser && authUser._id?.toString() === uId?.toString()
+
+                  return (
+                    <div
+                      key={uId}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors"
+                    >
+                      <Link
+                        to={`/profile/${uId}`}
+                        onClick={() => setFollowModalType(null)}
+                        className="flex items-center gap-3 group flex-1 min-w-0"
+                      >
+                        {uPic ? (
+                          <img
+                            src={uPic}
+                            alt={uName}
+                            className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-800 group-hover:ring-blue-500/40"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm ring-1 ring-slate-800 group-hover:ring-blue-500/40 shrink-0">
+                            {uName[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm text-slate-200 group-hover:text-blue-400 transition-colors truncate flex items-center gap-1.5">
+                            <span>{uName}</span>
+                            {isCurrentAuth && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          {uBio ? (
+                            <p className="text-xs text-slate-400 truncate">
+                              {uBio}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-slate-500">
+                              @{uName}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* EDIT PROFILE MODAL */}
       {isEditing && (
