@@ -349,3 +349,108 @@ export const getFollowing = async (req, res) => {
     })
   }
 }
+
+// @desc    Search users by username or bio (never exposing passwords or private data)
+// @route   GET /api/users/search?q=query
+// @access  Public (optional auth for isFollowing)
+export const searchUsers = async (req, res) => {
+  try {
+    const rawQuery = (req.query.q || req.query.query || '').trim()
+
+    if (!rawQuery) {
+      return res.status(200).json({ users: [], count: 0 })
+    }
+
+    // Escape regex special characters to prevent regex injection
+    const escapedQuery = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const searchRegex = new RegExp(escapedQuery, 'i')
+
+    const users = await User.find({
+      $or: [
+        { username: { $regex: searchRegex } },
+        { bio: { $regex: searchRegex } },
+      ],
+    })
+      .select('username bio profilePicture followers following createdAt')
+      .limit(20)
+
+    const currentUserId = req.user?._id?.toString()
+    const formattedUsers = users.map((u) => {
+      const uObj = u.toObject()
+      uObj.followersCount = u.followers ? u.followers.length : 0
+      uObj.followingCount = u.following ? u.following.length : 0
+      uObj.isFollowing = Boolean(
+        currentUserId &&
+          u.followers &&
+          u.followers.some(
+            (id) =>
+              (typeof id === 'string' ? id : id?._id || id).toString() ===
+              currentUserId
+          )
+      )
+      return uObj
+    })
+
+    return res.status(200).json({
+      users: formattedUsers,
+      count: formattedUsers.length,
+    })
+  } catch (error) {
+    console.error('Search users error:', error)
+    return res.status(500).json({
+      message: 'Server error searching users',
+    })
+  }
+}
+
+// @desc    Get suggested users (excluding self and already followed users)
+// @route   GET /api/users/suggestions
+// @access  Public (optional auth to exclude self and followed users)
+export const getSuggestedUsers = async (req, res) => {
+  try {
+    const filter = {}
+
+    if (req.user) {
+      const currentUser = await User.findById(req.user._id)
+      const excludeIds = [
+        ...(currentUser?.following || []),
+        req.user._id,
+      ]
+      filter._id = { $nin: excludeIds }
+    }
+
+    // Fetch up to 5 suggested users, sorted by most recent signups
+    const users = await User.find(filter)
+      .select('username bio profilePicture followers following createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5)
+
+    const currentUserId = req.user?._id?.toString()
+    const formattedUsers = users.map((u) => {
+      const uObj = u.toObject()
+      uObj.followersCount = u.followers ? u.followers.length : 0
+      uObj.followingCount = u.following ? u.following.length : 0
+      uObj.isFollowing = Boolean(
+        currentUserId &&
+          u.followers &&
+          u.followers.some(
+            (id) =>
+              (typeof id === 'string' ? id : id?._id || id).toString() ===
+              currentUserId
+          )
+      )
+      return uObj
+    })
+
+    return res.status(200).json({
+      users: formattedUsers,
+      count: formattedUsers.length,
+    })
+  } catch (error) {
+    console.error('Get suggested users error:', error)
+    return res.status(500).json({
+      message: 'Server error retrieving suggested users',
+    })
+  }
+}
+

@@ -7,10 +7,18 @@ import {
   unfollowUser,
   getFollowers,
   getFollowing,
+  searchUsers,
+  getSuggestedUsers,
 } from '../controllers/userController.js'
 import { protect, optionalProtect } from '../middleware/authMiddleware.js'
 
 const router = express.Router()
+
+// GET /api/users/search - Search users by query
+router.get('/search', optionalProtect, searchUsers)
+
+// GET /api/users/suggestions - Get suggested users to follow
+router.get('/suggestions', optionalProtect, getSuggestedUsers)
 
 // PUT /api/users/me - Update authenticated user's profile
 router.put('/me', protect, updateMyProfile)
@@ -20,6 +28,7 @@ router.get('/:id/followers', getFollowers)
 
 // GET /api/users/:id/following - Get user's following list
 router.get('/:id/following', getFollowing)
+
 
 // FOLLOW / UNFOLLOW ROUTES
 // PUT /api/users/:id/follow - Toggle follow/unfollow (protected)

@@ -2,6 +2,7 @@ import express from 'express'
 import {
   createPost,
   getPosts,
+  getPersonalizedFeed,
   getPostById,
   updatePost,
   deletePost,
@@ -21,6 +22,10 @@ const router = express.Router()
 // GET /api/posts - Get all posts with pagination (optional auth for isLiked)
 // POST /api/posts - Create a new post (protected)
 router.route('/').get(optionalProtect, getPosts).post(protect, createPost)
+
+// GET /api/posts/feed - Get personalized feed for following users (protected)
+router.get('/feed', protect, getPersonalizedFeed)
+
 
 // GET /api/posts/:id - Get single post by ID (optional auth for isLiked)
 // PUT /api/posts/:id - Edit post (protected, owner only)
