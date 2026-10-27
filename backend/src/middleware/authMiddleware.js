@@ -60,4 +60,30 @@ export const protect = async (req, res, next) => {
   }
 }
 
+// Optional auth middleware for routes accessible by both guests and authenticated users
+export const optionalProtect = async (req, res, next) => {
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer ')
+  ) {
+    try {
+      const token = req.headers.authorization.split(' ')[1]
+      if (token) {
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET || 'fallback_secret_key_dev'
+        )
+        const user = await User.findById(decoded.id).select('-password')
+        if (user) {
+          req.user = user
+        }
+      }
+    } catch {
+      // Ignore token errors for optional authentication
+    }
+  }
+  return next()
+}
+
 export default protect
+

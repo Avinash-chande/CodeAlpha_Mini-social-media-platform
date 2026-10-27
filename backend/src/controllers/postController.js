@@ -99,8 +99,22 @@ export const getPosts = async (req, res) => {
       .limit(limit)
       .populate('author', 'username profilePicture')
 
+    // Attach computed like and comment metadata
+    const currentUserId = req.user?._id?.toString()
+    const formattedPosts = posts.map((post) => {
+      const p = post.toObject()
+      p.likesCount = post.likes ? post.likes.length : 0
+      p.commentsCount = typeof post.commentsCount === 'number' ? post.commentsCount : 0
+      p.isLiked = Boolean(
+        currentUserId &&
+          post.likes &&
+          post.likes.some((uid) => uid.toString() === currentUserId)
+      )
+      return p
+    })
+
     return res.status(200).json({
-      posts,
+      posts: formattedPosts,
       page,
       limit,
       totalPages,
@@ -135,7 +149,17 @@ export const getPostById = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' })
     }
 
-    return res.status(200).json({ post })
+    const currentUserId = req.user?._id?.toString()
+    const postObj = post.toObject()
+    postObj.likesCount = post.likes ? post.likes.length : 0
+    postObj.commentsCount = typeof post.commentsCount === 'number' ? post.commentsCount : 0
+    postObj.isLiked = Boolean(
+      currentUserId &&
+        post.likes &&
+        post.likes.some((uid) => uid.toString() === currentUserId)
+    )
+
+    return res.status(200).json({ post: postObj })
   } catch (error) {
     console.error('Get post by ID error:', error)
     return res.status(500).json({
@@ -250,3 +274,114 @@ export const deletePost = async (req, res) => {
     })
   }
 }
+
+// @desc    Like or Unlike a post (toggle)
+// @route   PUT /api/posts/:id/like
+// @route   POST /api/posts/:id/like
+// @access  Private (Protected by JWT)
+export const likePost = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid post ID' })
+    }
+
+    const post = await Post.findById(id)
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' })
+    }
+
+    const userId = req.user._id
+    const alreadyLiked = post.likes.some(
+      (uid) => uid.toString() === userId.toString()
+    )
+
+    let updatedPost
+    let isLiked
+    let message
+
+    if (alreadyLiked) {
+      // Unlike post
+      updatedPost = await Post.findByIdAndUpdate(
+        id,
+        { $pull: { likes: userId } },
+        { new: true }
+      ).populate('author', 'username profilePicture')
+      isLiked = false
+      message = 'Post unliked successfully'
+    } else {
+      // Like post ($addToSet guarantees no duplicate likes)
+      updatedPost = await Post.findByIdAndUpdate(
+        id,
+        { $addToSet: { likes: userId } },
+        { new: true }
+      ).populate('author', 'username profilePicture')
+      isLiked = true
+      message = 'Post liked successfully'
+    }
+
+    const postObj = updatedPost.toObject()
+    postObj.likesCount = updatedPost.likes.length
+    postObj.commentsCount = typeof updatedPost.commentsCount === 'number' ? updatedPost.commentsCount : 0
+    postObj.isLiked = isLiked
+
+    return res.status(200).json({
+      message,
+      isLiked,
+      likesCount: updatedPost.likes.length,
+      likes: updatedPost.likes,
+      post: postObj,
+    })
+  } catch (error) {
+    console.error('Like post error:', error)
+    return res.status(500).json({
+      message: 'Server error updating post like status',
+    })
+  }
+}
+
+// @desc    Explicitly unlike a post
+// @route   POST /api/posts/:id/unlike
+// @route   DELETE /api/posts/:id/like
+// @access  Private (Protected by JWT)
+export const unlikePost = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid post ID' })
+    }
+
+    const post = await Post.findById(id)
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' })
+    }
+
+    const userId = req.user._id
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      { $pull: { likes: userId } },
+      { new: true }
+    ).populate('author', 'username profilePicture')
+
+    const postObj = updatedPost.toObject()
+    postObj.likesCount = updatedPost.likes.length
+    postObj.commentsCount = typeof updatedPost.commentsCount === 'number' ? updatedPost.commentsCount : 0
+    postObj.isLiked = false
+
+    return res.status(200).json({
+      message: 'Post unliked successfully',
+      isLiked: false,
+      likesCount: updatedPost.likes.length,
+      likes: updatedPost.likes,
+      post: postObj,
+    })
+  } catch (error) {
+    console.error('Unlike post error:', error)
+    return res.status(500).json({
+      message: 'Server error unliking post',
+    })
+  }
+}
+

@@ -24,11 +24,22 @@ const postSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    commentsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 )
+
+postSchema.virtual('likesCount').get(function () {
+  return this.likes ? this.likes.length : 0
+})
 
 postSchema.index({ createdAt: -1 })
 postSchema.index({ author: 1, createdAt: -1 })
@@ -36,3 +47,4 @@ postSchema.index({ author: 1, createdAt: -1 })
 const Post = mongoose.model('Post', postSchema)
 
 export default Post
+

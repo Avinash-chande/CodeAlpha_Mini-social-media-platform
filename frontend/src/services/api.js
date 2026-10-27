@@ -131,10 +131,58 @@ export const postAPI = {
     request(`/posts/${id}`, {
       method: 'DELETE',
     }),
+
+  // Like or unlike a post (toggle)
+  likePost: (id) =>
+    request(`/posts/${id}/like`, {
+      method: 'PUT',
+    }),
+
+  // Explicitly unlike a post
+  unlikePost: (id) =>
+    request(`/posts/${id}/unlike`, {
+      method: 'POST',
+    }),
+
+  // Get comments for a post
+  getComments: (postId) =>
+    request(`/posts/${postId}/comments`, {
+      method: 'GET',
+    }),
+
+  // Add a comment to a post
+  addComment: (postId, commentData) =>
+    request(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: commentData,
+    }),
+
+  // Update a comment (comment author only)
+  updateComment: (postId, commentId, commentData) =>
+    request(`/posts/${postId}/comments/${commentId}`, {
+      method: 'PUT',
+      body: commentData,
+    }),
+
+  // Delete a comment (comment author or post author)
+  deleteComment: (postId, commentId) =>
+    request(`/posts/${postId}/comments/${commentId}`, {
+      method: 'DELETE',
+    }),
+}
+
+export const commentAPI = {
+  getByPost: (postId) => postAPI.getComments(postId),
+  add: (postId, commentData) => postAPI.addComment(postId, commentData),
+  update: (postId, commentId, commentData) =>
+    postAPI.updateComment(postId, commentId, commentData),
+  delete: (postId, commentId) => postAPI.deleteComment(postId, commentId),
 }
 
 export default {
   auth: authAPI,
   users: userAPI,
   posts: postAPI,
+  comments: commentAPI,
 }
+
