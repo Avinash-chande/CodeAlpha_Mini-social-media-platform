@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import Post from '../models/Post.js'
 import User from '../models/User.js'
 import Comment from '../models/Comment.js'
+import { escapeRegex } from '../utils/escapeRegex.js'
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -146,7 +147,7 @@ export const getPosts = async (req, res) => {
       } else {
         // Allow lookup by username if a handle was passed
         const user = await User.findOne({
-          username: { $regex: new RegExp(`^${author}$`, 'i') },
+          username: { $regex: new RegExp(`^${escapeRegex(author)}$`, 'i') },
         })
         if (user) {
           filter.author = user._id
@@ -375,8 +376,8 @@ export const likePost = async (req, res) => {
     let isLiked
     let message
 
-    if (alreadyLiked) {
-      // Unlike post
+    if (req.method === 'PUT' && alreadyLiked) {
+      // Unlike post (toggle behavior for PUT)
       updatedPost = await Post.findByIdAndUpdate(
         id,
         { $pull: { likes: userId } },
@@ -392,7 +393,7 @@ export const likePost = async (req, res) => {
         { new: true }
       ).populate('author', 'username profilePicture')
       isLiked = true
-      message = 'Post liked successfully'
+      message = alreadyLiked ? 'Post already liked' : 'Post liked successfully'
     }
 
     const postObj = updatedPost.toObject()

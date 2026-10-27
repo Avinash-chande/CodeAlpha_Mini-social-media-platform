@@ -20,8 +20,13 @@ router.get('/search', optionalProtect, searchUsers)
 // GET /api/users/suggestions - Get suggested users to follow
 router.get('/suggestions', optionalProtect, getSuggestedUsers)
 
-// PUT /api/users/me - Update authenticated user's profile
+// GET /api/users/me or /api/users/profile - Get authenticated user's profile
+router.get('/me', protect, getUserProfile)
+router.get('/profile', protect, getUserProfile)
+
+// PUT /api/users/me or /api/users/profile - Update authenticated user's profile
 router.put('/me', protect, updateMyProfile)
+router.put('/profile', protect, updateMyProfile)
 
 // GET /api/users/:id/followers - Get user's followers list
 router.get('/:id/followers', getFollowers)

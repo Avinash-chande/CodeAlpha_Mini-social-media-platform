@@ -100,12 +100,18 @@ export default function Home() {
 
   // Trigger feed load when activeTab changes
   useEffect(() => {
-    fetchFeed(1, false, activeTab)
+    const timer = setTimeout(() => {
+      fetchFeed(1, false, activeTab)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [activeTab, fetchFeed])
 
   // Load suggestions on mount
   useEffect(() => {
-    fetchSuggestions()
+    const timer = setTimeout(() => {
+      fetchSuggestions()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [fetchSuggestions])
 
   // Handle follow/unfollow on suggested user widget

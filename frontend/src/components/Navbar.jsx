@@ -35,13 +35,11 @@ export default function Navbar() {
   useEffect(() => {
     const trimmed = searchQuery.trim()
     if (!trimmed) {
-      setSearchResults([])
-      setIsSearching(false)
       return
     }
 
-    setIsSearching(true)
     const timeoutId = setTimeout(async () => {
+      setIsSearching(true)
       try {
         const data = await userAPI.searchUsers(trimmed)
         setSearchResults(data.users || [])
@@ -118,8 +116,13 @@ export default function Navbar() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setShowDropdown(true)
+                  const val = e.target.value
+                  setSearchQuery(val)
+                  if (!val.trim()) {
+                    setSearchResults([])
+                    setIsSearching(false)
+                  }
+                  setShowDropdown(Boolean(val.trim()))
                 }}
                 onFocus={() => {
                   if (searchQuery.trim()) setShowDropdown(true)

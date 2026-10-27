@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
 import Post from '../models/Post.js'
+import { escapeRegex } from '../utils/escapeRegex.js'
 
 // Format user to ensure safe response (never sending password hash)
 const formatSafeUser = async (userDoc, currentUserId) => {
@@ -38,14 +39,17 @@ const formatSafeUser = async (userDoc, currentUserId) => {
 export const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params
+    const cleanId = (id || '').trim()
 
     let user
-    if (mongoose.isValidObjectId(id)) {
-      user = await User.findById(id).select('-password')
+    if ((cleanId === 'me' || cleanId === 'profile') && req.user) {
+      user = await User.findById(req.user._id).select('-password')
+    } else if (mongoose.isValidObjectId(cleanId)) {
+      user = await User.findById(cleanId).select('-password')
     } else {
       // Allow lookup by username if not a valid ObjectId
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(cleanId)}$`, 'i') },
       }).select('-password')
     }
 
@@ -90,7 +94,7 @@ export const updateMyProfile = async (req, res) => {
       // Check if username is taken by another user
       if (cleanUsername.toLowerCase() !== user.username.toLowerCase()) {
         const usernameExists = await User.findOne({
-          username: { $regex: new RegExp(`^${cleanUsername}$`, 'i') },
+          username: { $regex: new RegExp(`^${escapeRegex(cleanUsername)}$`, 'i') },
           _id: { $ne: user._id },
         })
 
@@ -146,7 +150,7 @@ export const updateMyProfile = async (req, res) => {
 export const updateUserById = async (req, res) => {
   const { id } = req.params
 
-  if (id === 'me' || (req.user && req.user._id.toString() === id)) {
+  if (id === 'me' || id === 'profile' || (req.user && req.user._id.toString() === id)) {
     return updateMyProfile(req, res)
   }
 
@@ -295,7 +299,7 @@ export const getFollowers = async (req, res) => {
       )
     } else {
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(id)}$`, 'i') },
       }).populate('followers', 'username bio profilePicture')
     }
 
@@ -330,7 +334,7 @@ export const getFollowing = async (req, res) => {
       )
     } else {
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(id)}$`, 'i') },
       }).populate('following', 'username bio profilePicture')
     }
 
