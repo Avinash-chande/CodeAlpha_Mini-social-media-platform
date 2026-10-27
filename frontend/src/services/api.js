@@ -91,20 +91,73 @@ export const userAPI = {
       method: 'PUT',
       body: profileData,
     }),
+
+  // Follow or unfollow user (toggle)
+  followUser: (id) =>
+    request(`/users/${id}/follow`, {
+      method: 'PUT',
+    }),
+
+  // Explicitly unfollow user
+  unfollowUser: (id) =>
+    request(`/users/${id}/unfollow`, {
+      method: 'POST',
+    }),
+
+  // Get user followers list
+  getFollowers: (id) =>
+    request(`/users/${id}/followers`, {
+      method: 'GET',
+    }),
+
+  // Get user following list
+  getFollowing: (id) =>
+    request(`/users/${id}/following`, {
+      method: 'GET',
+    }),
+
+  // Search users by username or bio
+  searchUsers: (query) => {
+    const params = new URLSearchParams()
+    if (query) params.append('q', query)
+    return request(`/users/search?${params.toString()}`, {
+      method: 'GET',
+    })
+  },
+
+  // Get suggested users to follow
+  getSuggestions: () =>
+    request('/users/suggestions', {
+      method: 'GET',
+    }),
 }
 
+
 export const postAPI = {
-  // Get posts with pagination and optional author filtering
-  getPosts: ({ page = 1, limit = 10, author } = {}) => {
+  // Get posts with pagination, optional author, and optional feed=following
+  getPosts: ({ page = 1, limit = 10, author, feed } = {}) => {
     const params = new URLSearchParams()
     if (page) params.append('page', page)
     if (limit) params.append('limit', limit)
     if (author) params.append('author', author)
+    if (feed) params.append('feed', feed)
     const queryString = params.toString() ? `?${params.toString()}` : ''
     return request(`/posts${queryString}`, {
       method: 'GET',
     })
   },
+
+  // Get personalized following feed
+  getFeed: ({ page = 1, limit = 10 } = {}) => {
+    const params = new URLSearchParams()
+    if (page) params.append('page', page)
+    if (limit) params.append('limit', limit)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    return request(`/posts/feed${queryString}`, {
+      method: 'GET',
+    })
+  },
+
 
   // Get single post by ID
   getPostById: (id) =>

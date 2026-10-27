@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useState, useEffect, useCallback } from 'react'
 import { authAPI } from '../services/api'
 
 const AuthContext = createContext(null)
@@ -100,12 +100,7 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+// eslint-disable-next-line react-refresh/only-export-components
+export { useAuth } from './useAuth'
 
 export default AuthContext
