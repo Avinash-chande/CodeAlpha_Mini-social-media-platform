@@ -9,10 +9,8 @@ import {
   RefreshCw,
   AlertCircle,
   MessageSquare,
-  CheckCircle2,
   Loader2,
   LogIn,
-  Layers,
 } from 'lucide-react'
 
 export default function Home() {
@@ -236,7 +234,7 @@ export default function Home() {
         </div>
 
         {/* Sidebar Column (1 col on lg) */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-24 self-start">
           {/* User Profile Summary Card (if authenticated) */}
           {isAuthenticated && user && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
@@ -274,78 +272,6 @@ export default function Home() {
               </Link>
             </div>
           )}
-
-          {/* Platform Status & Roadmap (Preserving Phase 1 & 2 details) */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-400" />
-              <h3 className="font-bold text-sm text-white">Project Roadmap</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-white">
-                    Phase 1: Project Setup
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    Vite, React 19, Tailwind v4, Express, MongoDB
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-white">
-                    Phase 2: Auth & Profiles
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    JWT Auth, Login, Register, Profile Editing
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-white">
-                    Phase 3: Posts & Feed
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    Create, Read, Edit, Delete posts, Image attachments & Feed
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/80 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-white">
-                    Phase 4: Likes & Comments
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    Real-time likes, full comment thread, moderation & editing
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-blue-950/20 border border-blue-500/30 flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-semibold text-white">
-                    Phase 5: Follow System
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    Follow/unfollow, followers & following counters and lists
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
         </div>
       </div>
     </div>
