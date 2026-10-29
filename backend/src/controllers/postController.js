@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import Post from '../models/Post.js'
 import User from '../models/User.js'
 import Comment from '../models/Comment.js'
+import { escapeRegex } from '../utils/escapeRegex.js'
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -55,16 +56,90 @@ export const createPost = async (req, res) => {
   }
 }
 
-// @desc    Get all posts (with pagination & optional author filter)
+// @desc    Get personalized feed (posts from followed users + own posts)
+// @route   GET /api/posts/feed
+// @access  Private (Protected by JWT)
+export const getPersonalizedFeed = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10))
+
+    // Fetch fresh user data to get current following array
+    const currentUser = await User.findById(req.user._id)
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    // Include followed users AND authenticated user's own posts
+    const allowedAuthors = [
+      ...(currentUser.following || []),
+      currentUser._id,
+    ]
+
+    const filter = { author: { $in: allowedAuthors } }
+
+    const totalPosts = await Post.countDocuments(filter)
+    const totalPages = Math.ceil(totalPosts / limit)
+    const skip = (page - 1) * limit
+
+    const posts = await Post.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('author', 'username profilePicture')
+
+    const currentUserId = req.user._id.toString()
+    const formattedPosts = posts.map((post) => {
+      const p = post.toObject()
+      p.likesCount = post.likes ? post.likes.length : 0
+      p.commentsCount =
+        typeof post.commentsCount === 'number' ? post.commentsCount : 0
+      p.isLiked = Boolean(
+        currentUserId &&
+          post.likes &&
+          post.likes.some((uid) => uid.toString() === currentUserId)
+      )
+      return p
+    })
+
+    return res.status(200).json({
+      posts: formattedPosts,
+      page,
+      limit,
+      totalPages,
+      totalPosts,
+      hasMore: page < totalPages,
+      feedType: 'following',
+    })
+  } catch (error) {
+    console.error('Get personalized feed error:', error)
+    return res.status(500).json({
+      message: 'Server error retrieving personalized feed',
+    })
+  }
+}
+
+// @desc    Get all posts (with pagination & optional author filter or feed=following)
 // @route   GET /api/posts
-// @access  Public
+// @access  Public (optional auth for isLiked)
 export const getPosts = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10))
-    const { author } = req.query
+    const { author, feed } = req.query
+
+    // If query specifies feed=following, use personalized feed logic
+    if (feed === 'following') {
+      if (!req.user) {
+        return res
+          .status(401)
+          .json({ message: 'Please log in to view following feed' })
+      }
+      return getPersonalizedFeed(req, res)
+    }
 
     const filter = {}
+
 
     if (author) {
       if (mongoose.isValidObjectId(author)) {
@@ -72,7 +147,7 @@ export const getPosts = async (req, res) => {
       } else {
         // Allow lookup by username if a handle was passed
         const user = await User.findOne({
-          username: { $regex: new RegExp(`^${author}$`, 'i') },
+          username: { $regex: new RegExp(`^${escapeRegex(author)}$`, 'i') },
         })
         if (user) {
           filter.author = user._id
@@ -301,8 +376,8 @@ export const likePost = async (req, res) => {
     let isLiked
     let message
 
-    if (alreadyLiked) {
-      // Unlike post
+    if (req.method === 'PUT' && alreadyLiked) {
+      // Unlike post (toggle behavior for PUT)
       updatedPost = await Post.findByIdAndUpdate(
         id,
         { $pull: { likes: userId } },
@@ -318,7 +393,7 @@ export const likePost = async (req, res) => {
         { new: true }
       ).populate('author', 'username profilePicture')
       isLiked = true
-      message = 'Post liked successfully'
+      message = alreadyLiked ? 'Post already liked' : 'Post liked successfully'
     }
 
     const postObj = updatedPost.toObject()

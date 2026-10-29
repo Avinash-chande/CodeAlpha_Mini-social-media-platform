@@ -1,6 +1,7 @@
 import User from '../models/User.js'
 import Post from '../models/Post.js'
 import { generateToken } from '../utils/generateToken.js'
+import { escapeRegex } from '../utils/escapeRegex.js'
 
 // Format user to ensure safe response (never sending password hash)
 const formatSafeUser = async (userDoc) => {
@@ -69,7 +70,7 @@ export const register = async (req, res) => {
     }
 
     const existingUsername = await User.findOne({
-      username: { $regex: new RegExp(`^${cleanUsername}$`, 'i') },
+      username: { $regex: new RegExp(`^${escapeRegex(cleanUsername)}$`, 'i') },
     })
     if (existingUsername) {
       return res.status(400).json({
@@ -125,7 +126,7 @@ export const login = async (req, res) => {
     const user = await User.findOne({
       $or: [
         { email: cleanEmail },
-        { username: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } },
+        { username: { $regex: new RegExp(`^${escapeRegex(cleanEmail)}$`, 'i') } },
       ],
     })
 

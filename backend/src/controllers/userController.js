@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
 import Post from '../models/Post.js'
+import { escapeRegex } from '../utils/escapeRegex.js'
 
 // Format user to ensure safe response (never sending password hash)
 const formatSafeUser = async (userDoc, currentUserId) => {
@@ -38,14 +39,17 @@ const formatSafeUser = async (userDoc, currentUserId) => {
 export const getUserProfile = async (req, res) => {
   try {
     const { id } = req.params
+    const cleanId = (id || '').trim()
 
     let user
-    if (mongoose.isValidObjectId(id)) {
-      user = await User.findById(id).select('-password')
+    if ((cleanId === 'me' || cleanId === 'profile') && req.user) {
+      user = await User.findById(req.user._id).select('-password')
+    } else if (mongoose.isValidObjectId(cleanId)) {
+      user = await User.findById(cleanId).select('-password')
     } else {
       // Allow lookup by username if not a valid ObjectId
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(cleanId)}$`, 'i') },
       }).select('-password')
     }
 
@@ -90,7 +94,7 @@ export const updateMyProfile = async (req, res) => {
       // Check if username is taken by another user
       if (cleanUsername.toLowerCase() !== user.username.toLowerCase()) {
         const usernameExists = await User.findOne({
-          username: { $regex: new RegExp(`^${cleanUsername}$`, 'i') },
+          username: { $regex: new RegExp(`^${escapeRegex(cleanUsername)}$`, 'i') },
           _id: { $ne: user._id },
         })
 
@@ -146,7 +150,7 @@ export const updateMyProfile = async (req, res) => {
 export const updateUserById = async (req, res) => {
   const { id } = req.params
 
-  if (id === 'me' || (req.user && req.user._id.toString() === id)) {
+  if (id === 'me' || id === 'profile' || (req.user && req.user._id.toString() === id)) {
     return updateMyProfile(req, res)
   }
 
@@ -295,7 +299,7 @@ export const getFollowers = async (req, res) => {
       )
     } else {
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(id)}$`, 'i') },
       }).populate('followers', 'username bio profilePicture')
     }
 
@@ -330,7 +334,7 @@ export const getFollowing = async (req, res) => {
       )
     } else {
       user = await User.findOne({
-        username: { $regex: new RegExp(`^${id}$`, 'i') },
+        username: { $regex: new RegExp(`^${escapeRegex(id)}$`, 'i') },
       }).populate('following', 'username bio profilePicture')
     }
 
@@ -349,3 +353,108 @@ export const getFollowing = async (req, res) => {
     })
   }
 }
+
+// @desc    Search users by username or bio (never exposing passwords or private data)
+// @route   GET /api/users/search?q=query
+// @access  Public (optional auth for isFollowing)
+export const searchUsers = async (req, res) => {
+  try {
+    const rawQuery = (req.query.q || req.query.query || '').trim()
+
+    if (!rawQuery) {
+      return res.status(200).json({ users: [], count: 0 })
+    }
+
+    // Escape regex special characters to prevent regex injection
+    const escapedQuery = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const searchRegex = new RegExp(escapedQuery, 'i')
+
+    const users = await User.find({
+      $or: [
+        { username: { $regex: searchRegex } },
+        { bio: { $regex: searchRegex } },
+      ],
+    })
+      .select('username bio profilePicture followers following createdAt')
+      .limit(20)
+
+    const currentUserId = req.user?._id?.toString()
+    const formattedUsers = users.map((u) => {
+      const uObj = u.toObject()
+      uObj.followersCount = u.followers ? u.followers.length : 0
+      uObj.followingCount = u.following ? u.following.length : 0
+      uObj.isFollowing = Boolean(
+        currentUserId &&
+          u.followers &&
+          u.followers.some(
+            (id) =>
+              (typeof id === 'string' ? id : id?._id || id).toString() ===
+              currentUserId
+          )
+      )
+      return uObj
+    })
+
+    return res.status(200).json({
+      users: formattedUsers,
+      count: formattedUsers.length,
+    })
+  } catch (error) {
+    console.error('Search users error:', error)
+    return res.status(500).json({
+      message: 'Server error searching users',
+    })
+  }
+}
+
+// @desc    Get suggested users (excluding self and already followed users)
+// @route   GET /api/users/suggestions
+// @access  Public (optional auth to exclude self and followed users)
+export const getSuggestedUsers = async (req, res) => {
+  try {
+    const filter = {}
+
+    if (req.user) {
+      const currentUser = await User.findById(req.user._id)
+      const excludeIds = [
+        ...(currentUser?.following || []),
+        req.user._id,
+      ]
+      filter._id = { $nin: excludeIds }
+    }
+
+    // Fetch up to 5 suggested users, sorted by most recent signups
+    const users = await User.find(filter)
+      .select('username bio profilePicture followers following createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5)
+
+    const currentUserId = req.user?._id?.toString()
+    const formattedUsers = users.map((u) => {
+      const uObj = u.toObject()
+      uObj.followersCount = u.followers ? u.followers.length : 0
+      uObj.followingCount = u.following ? u.following.length : 0
+      uObj.isFollowing = Boolean(
+        currentUserId &&
+          u.followers &&
+          u.followers.some(
+            (id) =>
+              (typeof id === 'string' ? id : id?._id || id).toString() ===
+              currentUserId
+          )
+      )
+      return uObj
+    })
+
+    return res.status(200).json({
+      users: formattedUsers,
+      count: formattedUsers.length,
+    })
+  } catch (error) {
+    console.error('Get suggested users error:', error)
+    return res.status(500).json({
+      message: 'Server error retrieving suggested users',
+    })
+  }
+}
+
